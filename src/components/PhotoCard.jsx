@@ -3,23 +3,16 @@ import { useState } from 'react';
 const PhotoCard = ({
   photo,
   onSelect,
-  isFavorite: controlledIsFavorite,
+  isFavorite = false,
   onToggleFavorite,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [internalLiked, setInternalLiked] = useState(false);
-
-  // Support both controlled (from App state with localStorage) and uncontrolled usage
-  const isFavorite =
-    controlledIsFavorite !== undefined ? controlledIsFavorite : internalLiked;
 
   const handleHeartClick = (e) => {
     e.stopPropagation(); // Prevent opening modal when clicking heart
     if (onToggleFavorite) {
       onToggleFavorite(photo.id);
-    } else {
-      setInternalLiked((prev) => !prev);
     }
   };
 

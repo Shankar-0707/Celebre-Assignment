@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, useReducer } from 'react';
 import Navbar from './components/Navbar';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorMessage from './components/ErrorMessage';
@@ -7,6 +7,42 @@ import PhotoModal from './components/PhotoModal';
 
 const PICSUM_API_URL =
   import.meta.env.VITE_PICSUM_API_URL || 'https://picsum.photos/v2/list?limit=30';
+
+const FAVORITES_STORAGE_KEY = 'celebre_favorites';
+
+/**
+ * Initializer for useReducer: safely loads favourites from localStorage.
+ */
+const initFavorites = () => {
+  try {
+    const saved = localStorage.getItem(FAVORITES_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch (err) {
+    console.error('Failed to parse favourites from localStorage:', err);
+    return [];
+  }
+};
+
+/**
+ * Favourites Reducer managing the list of favourite photo IDs.
+ * Actions:
+ * - TOGGLE_FAVORITE: Toggles photoId in or out of the favourites array.
+ * - CLEAR_FAVORITES: Clears all favourites.
+ */
+const favoritesReducer = (state, action) => {
+  switch (action.type) {
+    case 'TOGGLE_FAVORITE': {
+      const photoId = action.payload;
+      return state.includes(photoId)
+        ? state.filter((id) => id !== photoId)
+        : [...state, photoId];
+    }
+    case 'CLEAR_FAVORITES':
+      return [];
+    default:
+      return state;
+  }
+};
 
 function App() {
   const [photos, setPhotos] = useState([]);
@@ -19,29 +55,21 @@ function App() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const scrollContainerRef = useRef(null);
 
-  // Favorites state with localStorage persistence
-  const [favorites, setFavorites] = useState(() => {
-    try {
-      const saved = localStorage.getItem('celebre_favorites');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Manage favourites list using useReducer (not useState)
+  const [favorites, dispatchFavorites] = useReducer(favoritesReducer, [], initFavorites);
 
-  // Toggle favorite status for a photo
+  // Synchronize favourites to localStorage whenever state changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
+    } catch (err) {
+      console.error('Failed to persist favourites to localStorage:', err);
+    }
+  }, [favorites]);
+
+  // Toggle favorite action dispatcher
   const toggleFavorite = useCallback((photoId) => {
-    setFavorites((prev) => {
-      const next = prev.includes(photoId)
-        ? prev.filter((id) => id !== photoId)
-        : [...prev, photoId];
-      try {
-        localStorage.setItem('celebre_favorites', JSON.stringify(next));
-      } catch {
-        // ignore storage errors
-      }
-      return next;
-    });
+    dispatchFavorites({ type: 'TOGGLE_FAVORITE', payload: photoId });
   }, []);
 
   // Fetch photos from Picsum API
