@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 
-const PhotoModal = ({ photo, onClose }) => {
+const PhotoModal = ({ photo, onClose, isFavorite, onToggleFavorite }) => {
   useEffect(() => {
     if (!photo) return;
 
@@ -45,6 +45,35 @@ const PhotoModal = ({ photo, onClose }) => {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Heart / Favorite Button */}
+            {onToggleFavorite && (
+              <button
+                type="button"
+                onClick={() => onToggleFavorite(photo.id)}
+                aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                className={`p-2 rounded-xl transition-all duration-200 cursor-pointer flex items-center gap-1.5 text-xs font-medium border active:scale-90 ${
+                  isFavorite
+                    ? 'bg-rose-500/15 border-rose-500/40 text-rose-500 hover:bg-rose-500/25'
+                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-rose-400 hover:bg-slate-700'
+                }`}
+                title={isFavorite ? 'Unlike photo' : 'Like photo'}
+              >
+                <svg
+                  className={`w-4 h-4 ${isFavorite ? 'fill-rose-500' : 'fill-none'}`}
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+                <span className="hidden sm:inline">{isFavorite ? 'Liked' : 'Like'}</span>
+              </button>
+            )}
+
             <a
               href={photo.download_url}
               target="_blank"

@@ -1,6 +1,5 @@
-import React from 'react';
 
-const Navbar = ({ photoCount, onRefresh, loading }) => {
+const Navbar = ({ photoCount, onRefresh, loading, favoritesCount = 0 }) => {
   return (
     <header className="sticky top-0 z-40 w-full backdrop-blur-xl bg-slate-950/75 border-b border-slate-800/80 transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
@@ -29,8 +28,18 @@ const Navbar = ({ photoCount, onRefresh, loading }) => {
 
         {/* Actions & Badge */}
         <div className="flex items-center gap-3">
+          {/* Favorites Counter Badge */}
+          {favoritesCount > 0 && (
+            <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/25 text-rose-400 flex items-center gap-1.5 shadow-sm">
+              <svg className="w-3.5 h-3.5 fill-rose-500 text-rose-500" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              <span>{favoritesCount} Liked</span>
+            </span>
+          )}
+
           {photoCount > 0 && !loading && (
-            <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-slate-300 flex items-center gap-1.5">
+            <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-slate-300 hidden xs:flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               {photoCount} Photos Loaded
             </span>

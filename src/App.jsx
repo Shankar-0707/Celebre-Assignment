@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Navbar from './components/Navbar';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorMessage from './components/ErrorMessage';
@@ -16,7 +16,33 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isScrollContainer, setIsScrollContainer] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const scrollContainerRef = useRef(null);
+
+  // Favorites state with localStorage persistence
+  const [favorites, setFavorites] = useState(() => {
+    try {
+      const saved = localStorage.getItem('celebre_favorites');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Toggle favorite status for a photo
+  const toggleFavorite = useCallback((photoId) => {
+    setFavorites((prev) => {
+      const next = prev.includes(photoId)
+        ? prev.filter((id) => id !== photoId)
+        : [...prev, photoId];
+      try {
+        localStorage.setItem('celebre_favorites', JSON.stringify(next));
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
+  }, []);
 
   // Fetch photos from Picsum API
   const fetchPhotos = useCallback(async (isSimulatedError = false) => {
@@ -60,6 +86,7 @@ function App() {
 
   // Fetch on initial load
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPhotos();
   }, [fetchPhotos]);
 
@@ -92,16 +119,19 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Filter photos by author name if search query is entered
-  const filteredPhotos = photos.filter((photo) =>
-    photo.author.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter photos by author name and optional favorites toggle
+  const filteredPhotos = photos.filter((photo) => {
+    const matchesAuthor = photo.author.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFavorite = showFavoritesOnly ? favorites.includes(photo.id) : true;
+    return matchesAuthor && matchesFavorite;
+  });
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
       {/* Navigation Bar */}
       <Navbar
         photoCount={photos.length}
+        favoritesCount={favorites.length}
         onRefresh={() => fetchPhotos(false)}
         loading={loading}
       />
@@ -149,6 +179,27 @@ function App() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                 </svg>
                 {isScrollContainer ? 'Scroll Bar View: ON' : 'Scroll Bar View: OFF'}
+              </button>
+
+              {/* Favorites Filter Toggle */}
+              <button
+                id="toggle-favorites-filter"
+                onClick={() => setShowFavoritesOnly((prev) => !prev)}
+                className={`px-3 py-2 text-xs font-medium rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  showFavoritesOnly
+                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-sm shadow-rose-500/10'
+                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                }`}
+                title="Filter to show liked photos only"
+              >
+                <svg
+                  className={`w-3.5 h-3.5 ${showFavoritesOnly ? 'fill-rose-400 text-rose-400' : 'fill-none'}`}
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                <span>Favorites {favorites.length > 0 ? `(${favorites.length})` : ''}</span>
               </button>
 
               {/* Author Search Filter */}
@@ -207,13 +258,22 @@ function App() {
           <>
             {filteredPhotos.length === 0 ? (
               <div className="text-center py-16 bg-slate-900/40 rounded-2xl border border-slate-800">
-                <p className="text-slate-400 text-sm">No photos found matching "{searchQuery}"</p>
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 underline"
-                >
-                  Clear search filter
-                </button>
+                <p className="text-slate-400 text-sm">
+                  {showFavoritesOnly
+                    ? 'No favorite photos yet. Click the heart icon on any photo to like it!'
+                    : `No photos found matching "${searchQuery}"`}
+                </p>
+                {(searchQuery || showFavoritesOnly) && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setShowFavoritesOnly(false);
+                    }}
+                    className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                  >
+                    Reset all filters
+                  </button>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
@@ -238,11 +298,14 @@ function App() {
                       : ''
                   }
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-2">
+                  {/* Responsive Grid: Desktop: 4 columns | Tablet: 2 columns | Mobile: 1 column */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6 p-2">
                     {filteredPhotos.map((photo) => (
                       <PhotoCard
                         key={photo.id}
                         photo={photo}
+                        isFavorite={favorites.includes(photo.id)}
+                        onToggleFavorite={toggleFavorite}
                         onSelect={(p) => setSelectedPhoto(p)}
                       />
                     ))}
@@ -273,6 +336,8 @@ function App() {
       {selectedPhoto && (
         <PhotoModal
           photo={selectedPhoto}
+          isFavorite={favorites.includes(selectedPhoto.id)}
+          onToggleFavorite={toggleFavorite}
           onClose={() => setSelectedPhoto(null)}
         />
       )}
