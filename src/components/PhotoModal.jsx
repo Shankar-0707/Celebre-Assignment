@@ -101,7 +101,7 @@ const PhotoModal = ({ photo, onClose, isFavorite, onToggleFavorite }) => {
         {/* Modal Image Body */}
         <div className="relative flex-1 min-h-[300px] max-h-[65vh] bg-slate-950 flex items-center justify-center overflow-hidden">
           <img
-            src={`https://picsum.photos/id/${photo.id}/1200/900`}
+            src={`${import.meta.env.VITE_PICSUM_BASE_URL || 'https://picsum.photos'}/id/${photo.id}/1200/900`}
             alt={`Full photo by ${photo.author}`}
             className="w-full h-full object-contain max-h-[65vh]"
           />

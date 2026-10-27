@@ -16,8 +16,10 @@ const PhotoCard = ({
     }
   };
 
-  // Use Picsum's resized URL format for crisp, ultra-fast thumbnail loading
-  const previewUrl = `https://picsum.photos/id/${photo.id}/700/500`;
+  // Read base image URL from environment variable
+  const baseImageUrl =
+    import.meta.env.VITE_PICSUM_BASE_URL || 'https://picsum.photos';
+  const previewUrl = `${baseImageUrl}/id/${photo.id}/700/500`;
 
   return (
     <div
