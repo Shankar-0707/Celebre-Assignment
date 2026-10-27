@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Navbar from './components/Navbar';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorMessage from './components/ErrorMessage';
@@ -119,12 +119,27 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Filter photos by author name and optional favorites toggle
-  const filteredPhotos = photos.filter((photo) => {
-    const matchesAuthor = photo.author.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFavorite = showFavoritesOnly ? favorites.includes(photo.id) : true;
-    return matchesAuthor && matchesFavorite;
-  });
+  // Real-time client-side filter by author name (strictly no API call, no page reload)
+  const filteredPhotos = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return photos.filter((photo) => {
+      const matchesAuthor = !query || photo.author.toLowerCase().includes(query);
+      const matchesFavorite = showFavoritesOnly ? favorites.includes(photo.id) : true;
+      return matchesAuthor && matchesFavorite;
+    });
+  }, [photos, searchQuery, showFavoritesOnly, favorites]);
+
+  // Extract unique author names from pre-fetched photos for real-time quick filter chips
+  const authorSuggestions = useMemo(() => {
+    const unique = [];
+    for (const p of photos) {
+      if (p.author && !unique.includes(p.author)) {
+        unique.push(p.author);
+        if (unique.length >= 6) break;
+      }
+    }
+    return unique;
+  }, [photos]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
@@ -139,108 +154,185 @@ function App() {
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
         {/* Hero Section */}
-        <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-slate-800/80">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold uppercase tracking-wider mb-3">
-              Picsum Photos API Integration
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-              Curated Photo Stream
-            </h2>
-            <p className="mt-2 text-sm sm:text-base text-slate-400 max-w-xl">
-              Fetching 30 high-resolution photos on load from{' '}
-              <a
-                href={PICSUM_API_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
-              >
-                {PICSUM_API_URL.replace(/^https?:\/\//, '')}
-              </a>
-              .
-            </p>
+        <div className="mb-6 pb-6 border-b border-slate-800/80">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold uppercase tracking-wider mb-3">
+            Picsum Photos API Integration
           </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+            Curated Photo Stream
+          </h2>
+          <p className="mt-2 text-sm sm:text-base text-slate-400 max-w-xl">
+            Fetching 30 high-resolution photos on load from{' '}
+            <a
+              href={PICSUM_API_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
+            >
+              {PICSUM_API_URL.replace(/^https?:\/\//, '')}
+            </a>
+            .
+          </p>
+        </div>
 
-          {/* Search & Actions Bar (shown when photos are loaded) */}
-          {!loading && !error && photos.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-              {/* Scroll Container Toggle */}
-              <button
-                id="toggle-scroll-view"
-                onClick={() => setIsScrollContainer((prev) => !prev)}
-                className={`px-3 py-2 text-xs font-medium rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  isScrollContainer
-                    ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40 shadow-sm shadow-indigo-500/10'
-                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
-                }`}
-                title="Toggle between scrollable viewport and full-page layout"
+        {/* Dedicated Search Filter Bar at Top (Real-time client-side filter, strictly no page reload or API calls) */}
+        {!loading && !error && photos.length > 0 && (
+          <div className="mb-8 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xl backdrop-blur-md">
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+              {/* Real-time Search Input Form (Zero API calls, strictly no page reload) */}
+              <form
+                onSubmit={(e) => e.preventDefault()}
+                className="relative flex-1"
+                role="search"
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
-                {isScrollContainer ? 'Scroll Bar View: ON' : 'Scroll Bar View: OFF'}
-              </button>
-
-              {/* Favorites Filter Toggle */}
-              <button
-                id="toggle-favorites-filter"
-                onClick={() => setShowFavoritesOnly((prev) => !prev)}
-                className={`px-3 py-2 text-xs font-medium rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  showFavoritesOnly
-                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-sm shadow-rose-500/10'
-                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
-                }`}
-                title="Filter to show liked photos only"
-              >
-                <svg
-                  className={`w-3.5 h-3.5 ${showFavoritesOnly ? 'fill-rose-400 text-rose-400' : 'fill-none'}`}
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-                <span>Favorites {favorites.length > 0 ? `(${favorites.length})` : ''}</span>
-              </button>
-
-              {/* Author Search Filter */}
-              <div className="relative min-w-[200px]">
-                <input
-                  type="text"
-                  placeholder="Filter by author..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 focus:border-indigo-500 rounded-xl px-4 py-2 pl-9 text-xs sm:text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
-                />
-                <svg
-                  className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
-                    title="Clear filter"
+                <div className="relative">
+                  <svg
+                    className="w-5 h-5 text-indigo-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    ×
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                  <input
+                    id="author-search-input"
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') setSearchQuery('');
+                    }}
+                    placeholder="Search photos by author name in real-time (e.g. Alejandro, Paul, Jerry)..."
+                    aria-label="Filter photos by author name in real-time"
+                    autoComplete="off"
+                    className="w-full bg-slate-950/80 border border-slate-700/80 focus:border-indigo-500 rounded-xl py-3 pl-12 pr-32 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all shadow-inner"
+                  />
+
+                  {/* Input Actions: Real-time matches count & Clear button */}
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        aria-label="Clear search"
+                        className="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
+                        title="Clear search (Esc)"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/60 hidden sm:inline-block">
+                      {filteredPhotos.length} / {photos.length}
+                    </span>
+                  </div>
+                </div>
+              </form>
+
+              {/* Action Controls: Favorites toggle, Scroll View toggle, Simulate Error */}
+              <div className="flex items-center gap-2.5 flex-wrap">
+                {/* Favorites Filter Toggle */}
+                <button
+                  id="toggle-favorites-filter"
+                  onClick={() => setShowFavoritesOnly((prev) => !prev)}
+                  className={`px-3.5 py-2.5 text-xs font-medium rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    showFavoritesOnly
+                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-sm shadow-rose-500/10'
+                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
+                  }`}
+                  title="Filter to show liked photos only"
+                >
+                  <svg
+                    className={`w-3.5 h-3.5 ${showFavoritesOnly ? 'fill-rose-400 text-rose-400' : 'fill-none'}`}
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                    />
+                  </svg>
+                  <span>Favorites {favorites.length > 0 ? `(${favorites.length})` : ''}</span>
+                </button>
+
+                {/* Scroll Container Toggle */}
+                <button
+                  id="toggle-scroll-view"
+                  onClick={() => setIsScrollContainer((prev) => !prev)}
+                  className={`px-3.5 py-2.5 text-xs font-medium rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    isScrollContainer
+                      ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40 shadow-sm shadow-indigo-500/10'
+                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
+                  }`}
+                  title="Toggle between scrollable viewport and full-page layout"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                    />
+                  </svg>
+                  {isScrollContainer ? 'Scroll Bar View' : 'Full Page View'}
+                </button>
+
+                {/* Test Error Button */}
+                <button
+                  onClick={() => fetchPhotos(true)}
+                  className="px-3.5 py-2.5 text-xs font-medium text-slate-400 hover:text-rose-400 bg-slate-900/60 hover:bg-rose-500/10 border border-slate-800 hover:border-rose-500/30 rounded-xl transition-all cursor-pointer whitespace-nowrap"
+                  title="Simulate API failure to test error state and retry"
+                >
+                  Simulate Error
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Author Filter Chips & Live Search Status */}
+            <div className="mt-3.5 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-3 flex-wrap text-xs text-slate-400">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-slate-500 font-medium">Quick author filter:</span>
+                {authorSuggestions.map((author) => (
+                  <button
+                    key={author}
+                    type="button"
+                    onClick={() => setSearchQuery(author)}
+                    className={`px-2.5 py-1 rounded-lg border text-xs transition-all cursor-pointer ${
+                      searchQuery.toLowerCase() === author.toLowerCase()
+                        ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50 shadow-sm'
+                        : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    {author}
                   </button>
-                )}
+                ))}
               </div>
 
-              {/* Test Error Button */}
-              <button
-                onClick={() => fetchPhotos(true)}
-                className="px-3 py-2 text-xs font-medium text-slate-400 hover:text-rose-400 bg-slate-900/60 hover:bg-rose-500/10 border border-slate-800 hover:border-rose-500/30 rounded-xl transition-all cursor-pointer whitespace-nowrap"
-                title="Simulate API failure to test error state and retry"
-              >
-                Simulate Error
-              </button>
+              {searchQuery && (
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400">
+                    Showing <strong className="text-indigo-400 font-mono">{filteredPhotos.length}</strong> {filteredPhotos.length === 1 ? 'photo' : 'photos'} matching <span className="text-slate-200 font-medium">"{searchQuery}"</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="text-xs text-rose-400 hover:text-rose-300 underline underline-offset-2 cursor-pointer font-medium ml-1"
+                  >
+                    Clear search
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* State 1: Loading Spinner */}
         {loading && <LoadingSpinner />}
@@ -257,11 +349,19 @@ function App() {
         {!loading && !error && (
           <>
             {filteredPhotos.length === 0 ? (
-              <div className="text-center py-16 bg-slate-900/40 rounded-2xl border border-slate-800">
-                <p className="text-slate-400 text-sm">
-                  {showFavoritesOnly
+              <div className="text-center py-16 px-4 bg-slate-900/40 rounded-2xl border border-slate-800 flex flex-col items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 mb-3 shadow-inner">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-base font-semibold text-slate-200">No photos found</h3>
+                <p className="text-slate-400 text-sm mt-1 max-w-md">
+                  {searchQuery
+                    ? `No photos found matching author "${searchQuery}". Check the spelling or try another author.`
+                    : showFavoritesOnly
                     ? 'No favorite photos yet. Click the heart icon on any photo to like it!'
-                    : `No photos found matching "${searchQuery}"`}
+                    : 'No photos available.'}
                 </p>
                 {(searchQuery || showFavoritesOnly) && (
                   <button
@@ -269,9 +369,9 @@ function App() {
                       setSearchQuery('');
                       setShowFavoritesOnly(false);
                     }}
-                    className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                    className="mt-4 px-4 py-2 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all cursor-pointer shadow-lg shadow-indigo-600/20"
                   >
-                    Reset all filters
+                    Reset Search & Filters
                   </button>
                 )}
               </div>
