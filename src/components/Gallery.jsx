@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import useFetchPhotos from '../hooks/useFetchPhotos';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
@@ -20,6 +20,27 @@ const Gallery = ({
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const scrollContainerRef = useRef(null);
+
+  // useCallback: Memoized search filter input change handler
+  const handleSearchChange = useCallback((e) => {
+    setSearchQuery(e.target.value);
+  }, []);
+
+  // useCallback: Memoized clear search handler
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+  }, []);
+
+  // useCallback: Memoized author tag selection handler
+  const handleAuthorSelect = useCallback((author) => {
+    setSearchQuery(author);
+  }, []);
+
+  // useCallback: Memoized reset search & filter handler
+  const handleResetFilters = useCallback(() => {
+    setSearchQuery('');
+    setShowFavoritesOnly(false);
+  }, []);
 
   // Expose refetch to parent if ref provided
   useEffect(() => {
@@ -59,7 +80,7 @@ const Gallery = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Real-time client-side filter by author name (no API call, no page reload)
+  // useMemo: Memoized computation of filtered photo list based on author query and favorites
   const filteredPhotos = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return photos.filter((photo) => {
@@ -129,9 +150,9 @@ const Gallery = ({
                   id="author-search-input"
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={handleSearchChange}
                   onKeyDown={(e) => {
-                    if (e.key === 'Escape') setSearchQuery('');
+                    if (e.key === 'Escape') handleClearSearch();
                   }}
                   placeholder="Search photos by author name in real-time (e.g. Alejandro, Paul, Jerry)..."
                   aria-label="Filter photos by author name in real-time"
@@ -143,7 +164,7 @@ const Gallery = ({
                   {searchQuery && (
                     <button
                       type="button"
-                      onClick={() => setSearchQuery('')}
+                      onClick={handleClearSearch}
                       aria-label="Clear search"
                       className="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
                       title="Clear search (Esc)"
@@ -215,7 +236,7 @@ const Gallery = ({
                   <button
                     key={author}
                     type="button"
-                    onClick={() => setSearchQuery(author)}
+                    onClick={() => handleAuthorSelect(author)}
                     className={`px-2.5 py-1 rounded-lg border text-xs transition-all cursor-pointer ${
                       searchQuery.toLowerCase() === author.toLowerCase()
                         ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50 shadow-sm'
@@ -234,7 +255,7 @@ const Gallery = ({
                   </span>
                   <button
                     type="button"
-                    onClick={() => setSearchQuery('')}
+                    onClick={handleClearSearch}
                     className="text-xs text-rose-400 hover:text-rose-300 underline underline-offset-2 cursor-pointer font-medium ml-1"
                   >
                     Clear search
@@ -277,10 +298,7 @@ const Gallery = ({
               </p>
               {(searchQuery || showFavoritesOnly) && (
                 <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setShowFavoritesOnly(false);
-                  }}
+                  onClick={handleResetFilters}
                   className="mt-4 px-4 py-2 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all cursor-pointer shadow-lg shadow-indigo-600/20"
                 >
                   Reset Search & Filters
